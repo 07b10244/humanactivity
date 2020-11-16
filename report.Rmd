@@ -1,0 +1,199 @@
+---
+title: "Human Activity Recognition"
+author: "Matthias Reimann"
+date: "13 November 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(corrplot)
+library(caret)
+```
+
+# Executive Summary
+
+Using data from accelerometers on the belt, forearm, arm and dumbell of six test persons, a classification prediction of the type of activity is chosen from a set of different methods, including random forest, generalized boosting and classification tree. All methods are tested using the results of a confusion matrix.
+
+# Data Preparation
+
+## Source
+
+All data used in this analysis was retrieved from the following source on 13 November 2020:
+
+Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6.
+
+
+## Loading
+
+The required data is loaded to tibbles from the CSV files provided by the authors of aforementioned publication.
+
+```{r}
+trainingset <- tibble(read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+testset <- tibble(read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+message("Dimensions of the training set:")
+dim(trainingset)
+message("Dimensions of the test set:")
+dim(testset)
+```
+
+## Remove Indexes
+
+All index columens of for which can be assumed from the outset that there is no correlation with the desired classe feature, are excluded 
+
+```{r}
+trainingset <- select(trainingset, !X:cvtd_timestamp)
+testset <- select(testset, !X:cvtd_timestamp)
+```
+
+## Remove Features with many missing Values
+
+Features that contain more than 50% of missing values are dropped from the dataset and will not be included in the analysis.
+
+```{r}
+wdfeatures <- sapply(trainingset, function(x) mean(is.na(x))) > .5
+trainingset <- trainingset[, wdfeatures==FALSE]
+testset  <- testset[, wdfeatures==FALSE]
+message("New dimensions of the training set:")
+dim(trainingset)
+message("New dimensions of the test set:")
+dim(testset)
+```
+
+## Remove Features with little Variance
+
+Features with near zero variance and many missing values are also removed from the dataset, as they contain little or no information useful for prediction.
+
+```{r}
+nzfeatures <- nearZeroVar(trainingset)
+trainingset <- trainingset[, -nzfeatures]
+testset <- testset[, -nzfeatures]
+message("The following features are removed:")
+nzfeatures
+message("New dimensions of the training set:")
+dim(trainingset)
+message("New dimensions of the test set:")
+dim(testset)
+```
+
+# Correlation of independent Features
+
+To gain an overview of existing correlations between independent features, a correlogram can be plotted. It shows few clusters of existing correlations mainly between components of the same feature, so it can be decided to continue with model building an return for an in-depth analysis later as required.
+
+```{r}
+corrplot(cor(select(trainingset, !classe)), method="circle", tl.cex = 0.5)
+```
+
+
+# Models
+
+## Extract Validation Set
+
+The data table is split into a training and a validation set as required by the subsequent training steps. The additional test set will only be used for the following task of the assignment, since it does not contain the required classification information.
+
+```{r}
+tdp  <- createDataPartition(trainingset$classe, p = .7, list = FALSE)
+validationset  <- trainingset[-tdp, ]
+trainingset <- trainingset[tdp, ]
+```
+
+
+## Random Forest Model
+
+A random forest model is trained using the rf method provided in the caret package.
+
+```{r cache=TRUE}
+rfmodel <-
+  train(
+    classe ~ .,
+    data = trainingset,
+    method = "rf",
+    trControl = trainControl(
+      method = "cv",
+      number = 5
+    ),
+    verbose = FALSE
+  )
+
+rfmodel$finalModel
+```
+
+
+
+```{r}
+rfprediction <- predict(rfmodel, newdata = validationset)
+rfconfusion <- confusionMatrix(rfprediction, as.factor(validationset$classe))
+rfconfusion
+plot(rfconfusion$table, col = rfconfusion$byClass, main = "CT for the Random Forest Model")
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+## Generalized Boosted Model
+
+A generalized boosted model is trained using the gbm method provided in the caret package.
+
+```{r cache=TRUE}
+gbmodel <-
+  train(
+    classe ~ .,
+    data = trainingset,
+    method = "gbm",
+    trControl = trainControl(
+      method = "repeatedcv",
+      number = 5,
+      repeats = 2
+    ),
+    verbose = FALSE
+  )
+
+gbmodel$finalModel
+```
+
+
+
+```{r}
+gbprediction <- predict(gbmodel, newdata = validationset)
+gbconfusion <- confusionMatrix(gbprediction, as.factor(validationset$classe))
+gbconfusion
+plot(gbconfusion$table, col = gbconfusion$byClass, main = "CT for the Generalized Boosted Model")
+```
+
+
+## XX Model
+
+```{r cache=TRUE}
+dtmodel <-
+  train(
+    classe ~ .,
+    data = trainingset,
+    method = "rpart",
+    tuneLength = 35
+  )
+
+dtmodel$finalModel
+```
+
+```{r}
+dtprediction <- predict(dtmodel, newdata = validationset)
+dtconfusion <- confusionMatrix(dtprediction, as.factor(validationset$classe))
+dtconfusion
+plot(dtconfusion$table, col = dtconfusion$byClass)
+```
+
+# Selection of the best Model
+
+The best model appears to be the random forest with an accuracy exceeding 99%. This model is therefor chosen to make a prediction for the test data as follows.
+
+```{r}
+prediction <- predict(rfmodel, newdata=testset)
+prediction
+```
