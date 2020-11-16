@@ -176,10 +176,10 @@ dtmodel <-
     classe ~ .,
     data = trainingset,
     method = "rpart",
-    tuneLength = 35
+    tuneLength = 15
   )
 
-dtmodel$finalModel
+dtmodel
 ```
 
 ```{r}
