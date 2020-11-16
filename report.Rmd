@@ -1,7 +1,7 @@
 ---
 title: "Human Activity Recognition"
 author: "Matthias Reimann"
-date: "13 November 2020"
+date: "16 November 2020"
 output: html_document
 ---
 
@@ -24,7 +24,6 @@ All data used in this analysis was retrieved from the following source on 13 Nov
 
 Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6.
 
-
 ## Loading
 
 The required data is loaded to tibbles from the CSV files provided by the authors of aforementioned publication.
@@ -32,9 +31,7 @@ The required data is loaded to tibbles from the CSV files provided by the author
 ```{r}
 trainingset <- tibble(read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
 testset <- tibble(read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
-message("Dimensions of the training set:")
 dim(trainingset)
-message("Dimensions of the test set:")
 dim(testset)
 ```
 
@@ -55,9 +52,7 @@ Features that contain more than 50% of missing values are dropped from the datas
 wdfeatures <- sapply(trainingset, function(x) mean(is.na(x))) > .5
 trainingset <- trainingset[, wdfeatures==FALSE]
 testset  <- testset[, wdfeatures==FALSE]
-message("New dimensions of the training set:")
 dim(trainingset)
-message("New dimensions of the test set:")
 dim(testset)
 ```
 
@@ -69,11 +64,8 @@ Features with near zero variance and many missing values are also removed from t
 nzfeatures <- nearZeroVar(trainingset)
 trainingset <- trainingset[, -nzfeatures]
 testset <- testset[, -nzfeatures]
-message("The following features are removed:")
 nzfeatures
-message("New dimensions of the training set:")
 dim(trainingset)
-message("New dimensions of the test set:")
 dim(testset)
 ```
 
@@ -84,7 +76,6 @@ To gain an overview of existing correlations between independent features, a cor
 ```{r}
 corrplot(cor(select(trainingset, !classe)), method="circle", tl.cex = 0.5)
 ```
-
 
 # Models
 
@@ -97,7 +88,6 @@ tdp  <- createDataPartition(trainingset$classe, p = .7, list = FALSE)
 validationset  <- trainingset[-tdp, ]
 trainingset <- trainingset[tdp, ]
 ```
-
 
 ## Random Forest Model
 
@@ -119,23 +109,12 @@ rfmodel <-
 rfmodel$finalModel
 ```
 
-
-
 ```{r}
 rfprediction <- predict(rfmodel, newdata = validationset)
 rfconfusion <- confusionMatrix(rfprediction, as.factor(validationset$classe))
 rfconfusion
 plot(rfconfusion$table, col = rfconfusion$byClass, main = "CT for the Random Forest Model")
 ```
-
-
-
-
-```{r}
-
-```
-
-
 
 ## Generalized Boosted Model
 
@@ -158,8 +137,6 @@ gbmodel <-
 gbmodel$finalModel
 ```
 
-
-
 ```{r}
 gbprediction <- predict(gbmodel, newdata = validationset)
 gbconfusion <- confusionMatrix(gbprediction, as.factor(validationset$classe))
@@ -167,8 +144,9 @@ gbconfusion
 plot(gbconfusion$table, col = gbconfusion$byClass, main = "CT for the Generalized Boosted Model")
 ```
 
+## Decision Tree Model
 
-## XX Model
+A decision tree with 15 nodes was also added for comparison, results are displayed below.
 
 ```{r cache=TRUE}
 dtmodel <-
@@ -186,7 +164,7 @@ dtmodel
 dtprediction <- predict(dtmodel, newdata = validationset)
 dtconfusion <- confusionMatrix(dtprediction, as.factor(validationset$classe))
 dtconfusion
-plot(dtconfusion$table, col = dtconfusion$byClass)
+plot(dtconfusion$table, col = dtconfusion$byClass, main = "CT for the Decision Tree Model")
 ```
 
 # Selection of the best Model
